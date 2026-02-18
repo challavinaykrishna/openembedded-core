@@ -39,11 +39,35 @@ perform_useradd () {
 	bbnote "${PN}: Performing useradd with [$opts]"
 	local username=`echo "$opts" | awk '{ print $NF }'`
 	local user_exists="`grep "^$username:" $rootdir/etc/passwd || true`"
+	
 	if test "x$user_exists" = "x"; then
-		eval flock -x $rootdir${sysconfdir} -c  \"$PSEUDO useradd \$opts\" || true
+		# Extract supplementary groups from -G option for separate handling
+		local supplementary_groups=""
+		local useradd_opts="$opts"
+		
+		# Check if -G option is present
+		if echo "$opts" | grep -q "\-G "; then
+			supplementary_groups=`echo "$opts" | sed -n 's/.*-G \([^ ]*\).*/\1/p'`
+			# Remove -G option and its argument from useradd command
+			useradd_opts=`echo "$opts" | sed 's/-G [^ ]* //g'`
+		fi
+		
+		# Create user without supplementary groups first
+		eval flock -x $rootdir${sysconfdir} -c  \"$PSEUDO useradd \$useradd_opts\" || true
 		user_exists="`grep "^$username:" $rootdir/etc/passwd || true`"
 		if test "x$user_exists" = "x"; then
 			bbfatal "${PN}: useradd command did not succeed."
+		fi
+		
+		# Add user to supplementary groups using perform_groupmems
+		if test "x$supplementary_groups" != "x"; then
+			local IFS=','
+			for group in $supplementary_groups; do
+				if test "x$group" != "x"; then
+					bbnote "${PN}: Adding $username to supplementary group $group using groupmems"
+					perform_groupmems "$rootdir" "-g $group -a $username"
+				fi
+			done
 		fi
 	else
 		bbnote "${PN}: user $username already exists, not re-creating it"
@@ -55,17 +79,43 @@ perform_groupmems () {
 	local opts="$2"
 	bbnote "${PN}: Performing groupmems with [$opts]"
 	local groupname=`echo "$opts" | awk '{ for (i = 1; i < NF; i++) if ($i == "-g" || $i == "--group") print $(i+1) }'`
-	local username=`echo "$opts" | awk '{ for (i = 1; i < NF; i++) if ($i == "-a" || $i == "--add") print $(i+1) }'`
-	bbnote "${PN}: Running groupmems command with group $groupname and user $username"
-	local mem_exists="`grep "^$groupname:[^:]*:[^:]*:\([^,]*,\)*$username\(,[^,]*\)*$" $rootdir/etc/group || true`"
-	if test "x$mem_exists" = "x"; then
-		eval flock -x $rootdir${sysconfdir} -c \"$PSEUDO groupmems \$opts\" || true
-		mem_exists="`grep "^$groupname:[^:]*:[^:]*:\([^,]*,\)*$username\(,[^,]*\)*$" $rootdir/etc/group || true`"
+	
+	# Check if this is an add (-a) or delete (-d) operation
+	local is_add=`echo "$opts" | grep -E "\-a|\-\-add" || true`
+	local is_delete=`echo "$opts" | grep -E "\-d|\-\-delete" || true`
+	
+	if test "x$is_add" != "x"; then
+		# Adding user to group
+		local username=`echo "$opts" | awk '{ for (i = 1; i < NF; i++) if ($i == "-a" || $i == "--add") print $(i+1) }'`
+		bbnote "${PN}: Running groupmems command to add user $username to group $groupname"
+		local mem_exists="`grep "^$groupname:[^:]*:[^:]*:\([^,]*,\)*$username\(,[^,]*\)*$" $rootdir/etc/group || true`"
 		if test "x$mem_exists" = "x"; then
-			bbfatal "${PN}: groupmems command did not succeed."
+			eval flock -x $rootdir${sysconfdir} -c \"$PSEUDO groupmems \$opts\" || true
+			mem_exists="`grep "^$groupname:[^:]*:[^:]*:\([^,]*,\)*$username\(,[^,]*\)*$" $rootdir/etc/group || true`"
+			if test "x$mem_exists" = "x"; then
+				bbfatal "${PN}: groupmems add command did not succeed."
+			fi
+		else
+			# During upgrades, group membership may be removed by postrm, so always try to re-add
+			eval flock -x $rootdir${sysconfdir} -c \"$PSEUDO groupmems \$opts\" || true
+			bbnote "${PN}: Re-added user $username to group $groupname"
+		fi
+	elif test "x$is_delete" != "x"; then
+		# Removing user from group
+		local username=`echo "$opts" | awk '{ for (i = 1; i < NF; i++) if ($i == "-d" || $i == "--delete") print $(i+1) }'`
+		bbnote "${PN}: Running groupmems command to remove user $username from group $groupname"
+		local mem_exists="`grep "^$groupname:[^:]*:[^:]*:\([^,]*,\)*$username\(,[^,]*\)*$" $rootdir/etc/group || true`"
+		if test "x$mem_exists" != "x"; then
+			eval flock -x $rootdir${sysconfdir} -c \"$PSEUDO groupmems \$opts\" || true
+			mem_exists="`grep "^$groupname:[^:]*:[^:]*:\([^,]*,\)*$username\(,[^,]*\)*$" $rootdir/etc/group || true`"
+			if test "x$mem_exists" != "x"; then
+				bbwarn "${PN}: groupmems delete command did not succeed."
+			fi
+		else
+			bbnote "${PN}: group $groupname doesn't contain $username, not removing it"
 		fi
 	else
-		bbnote "${PN}: group $groupname already contains $username, not re-adding it"
+		bbwarn "${PN}: groupmems command missing add (-a) or delete (-d) operation"
 	fi
 }
 

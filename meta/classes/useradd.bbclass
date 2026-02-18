@@ -49,6 +49,10 @@ if test "x$UA_SYSROOT" = "x"; then
 	GROUPADD_PARAM="${GROUPADD_PARAM}"
 	USERADD_PARAM="${USERADD_PARAM}"
 	GROUPMEMS_PARAM="${GROUPMEMS_PARAM}"
+	GROUPMOD_PARAM="${GROUPMOD_PARAM}"
+	USERMOD_PARAM="${USERMOD_PARAM}"
+	GROUPDEL_PARAM="${GROUPDEL_PARAM}"
+	USERDEL_PARAM="${USERDEL_PARAM}"
 fi
 
 # Perform group additions first, since user additions may depend
@@ -85,14 +89,63 @@ if test "x`echo $USERADD_PARAM | tr -d '[:space:]'`" != "x"; then
 	done
 fi
 
-if test "x`echo $GROUPMEMS_PARAM | tr -d '[:space:]'`" != "x"; then
-	echo "Running groupmems commands..."
-	# Invoke multiple instances of groupmems for parameter lists
+
+if test "x`echo $GROUPMOD_PARAM | tr -d '[:space:]'`" != "x"; then
+	echo "Running groupmod commands..."
+	# Invoke multiple instances of groupmod for parameter lists
 	# separated by ';'
-	opts=`echo "$GROUPMEMS_PARAM" | cut -d ';' -f 1 | sed -e 's#[ \t]*$##'`
-	remaining=`echo "$GROUPMEMS_PARAM" | cut -d ';' -f 2- | sed -e 's#[ \t]*$##'`
+	opts=`echo "$GROUPMOD_PARAM" | cut -d ';' -f 1 | sed -e 's#[ \t]*$##'`
+	remaining=`echo "$GROUPMOD_PARAM" | cut -d ';' -f 2- | sed -e 's#[ \t]*$##'`
 	while test "x$opts" != "x"; do
-		perform_groupmems "$SYSROOT" "$OPT $opts"
+		perform_groupmod "$SYSROOT" "$OPT $opts"
+		if test "x$opts" = "x$remaining"; then
+			break
+		fi
+		opts=`echo "$remaining" | cut -d ';' -f 1 | sed -e 's#[ \t]*$##'`
+		remaining=`echo "$remaining" | cut -d ';' -f 2- | sed -e 's#[ \t]*$##'`
+	done
+fi
+
+if test "x`echo $USERMOD_PARAM | tr -d '[:space:]'`" != "x"; then
+	echo "Running usermod commands..."
+	# Invoke multiple instances of usermod for parameter lists
+	# separated by ';'
+	opts=`echo "$USERMOD_PARAM" | cut -d ';' -f 1 | sed -e 's#[ \t]*$##'`
+	remaining=`echo "$USERMOD_PARAM" | cut -d ';' -f 2- | sed -e 's#[ \t]*$##'`
+	while test "x$opts" != "x"; do
+		perform_usermod "$SYSROOT" "$OPT $opts"
+		if test "x$opts" = "x$remaining"; then
+			break
+		fi
+		opts=`echo "$remaining" | cut -d ';' -f 1 | sed -e 's#[ \t]*$##'`
+		remaining=`echo "$remaining" | cut -d ';' -f 2- | sed -e 's#[ \t]*$##'`
+	done
+fi
+
+if test "x`echo $USERDEL_PARAM | tr -d '[:space:]'`" != "x"; then
+	echo "Running userdel commands..."
+	# Invoke multiple instances of userdel for parameter lists
+	# separated by ';'
+	opts=`echo "$USERDEL_PARAM" | cut -d ';' -f 1 | sed -e 's#[ \t]*$##'`
+	remaining=`echo "$USERDEL_PARAM" | cut -d ';' -f 2- | sed -e 's#[ \t]*$##'`
+	while test "x$opts" != "x"; do
+		perform_userdel "$SYSROOT" "$OPT $opts"
+		if test "x$opts" = "x$remaining"; then
+			break
+		fi
+		opts=`echo "$remaining" | cut -d ';' -f 1 | sed -e 's#[ \t]*$##'`
+		remaining=`echo "$remaining" | cut -d ';' -f 2- | sed -e 's#[ \t]*$##'`
+	done
+fi
+
+if test "x`echo $GROUPDEL_PARAM | tr -d '[:space:]'`" != "x"; then
+	echo "Running groupdel commands..."
+	# Invoke multiple instances of groupdel for parameter lists
+	# separated by ';'
+	opts=`echo "$GROUPDEL_PARAM" | cut -d ';' -f 1 | sed -e 's#[ \t]*$##'`
+	remaining=`echo "$GROUPDEL_PARAM" | cut -d ';' -f 2- | sed -e 's#[ \t]*$##'`
+	while test "x$opts" != "x"; do
+		perform_groupdel "$SYSROOT" "$OPT $opts"
 		if test "x$opts" = "x$remaining"; then
 			break
 		fi
@@ -112,6 +165,22 @@ groupadd_sysroot () {
 
 groupmemsadd_sysroot () {
 	user_group_groupmems_add_sysroot groupmems
+}
+
+groupmod_sysroot () {
+	user_group_groupmems_add_sysroot groupmod
+}
+
+usermod_sysroot () {
+	user_group_groupmems_add_sysroot usermod
+}
+
+groupdel_sysroot () {
+	user_group_groupmems_add_sysroot groupdel
+}
+
+userdel_sysroot () {
+	user_group_groupmems_add_sysroot userdel
 }
 
 user_group_groupmems_add_sysroot () {
@@ -149,6 +218,14 @@ user_group_groupmems_add_sysroot () {
 		USERADD_PARAM="${@get_all_cmd_params(d, 'useradd')}"
 	elif test "$1" = "groupmems"; then
 		GROUPMEMS_PARAM="${@get_all_cmd_params(d, 'groupmems')}"
+	elif test "$1" = "groupmod"; then
+		GROUPMOD_PARAM="${@get_all_cmd_params(d, 'groupmod')}"
+	elif test "$1" = "usermod"; then
+		USERMOD_PARAM="${@get_all_cmd_params(d, 'usermod')}"
+	elif test "$1" = "groupdel"; then
+		GROUPDEL_PARAM="${@get_all_cmd_params(d, 'groupdel')}"
+	elif test "$1" = "userdel"; then
+		USERDEL_PARAM="${@get_all_cmd_params(d, 'userdel')}"
 	elif test "x$1" = "x"; then
 		bbwarn "missing type of passwd db action"
 	fi
@@ -166,11 +243,24 @@ user_group_groupmems_add_sysroot () {
 EXTRA_STAGING_FIXMES += "PSEUDO_SYSROOT PSEUDO_LOCALSTATEDIR LOGFIFO"
 
 python useradd_sysroot_sstate () {
-    for type, sort_prefix in [("group", "01"), ("user", "02"), ("groupmems", "03")]:
+    for type, sort_prefix in [("group", "01"), ("user", "02"), ("groupmems", "03"), ("groupmod", "04"), ("usermod", "05"), ("userdel", "06"), ("groupdel", "07")]:
         scriptfile = None
         task = d.getVar("BB_CURRENTTASK")
         if task == "package_setscene":
-            bb.build.exec_func(type + "add_sysroot", d)
+            if type == "group":
+                bb.build.exec_func("groupadd_sysroot", d)
+            elif type == "user":
+                bb.build.exec_func("useradd_sysroot", d)
+            elif type == "groupmems":
+                bb.build.exec_func("groupmemsadd_sysroot", d)
+            elif type == "groupmod":
+                bb.build.exec_func("groupmod_sysroot", d)
+            elif type == "usermod":
+                bb.build.exec_func("usermod_sysroot", d)
+            elif type == "userdel":
+                bb.build.exec_func("userdel_sysroot", d)
+            elif type == "groupdel":
+                bb.build.exec_func("groupdel_sysroot", d)
         elif task == "prepare_recipe_sysroot":
             # Used to update this recipe's own sysroot so the user/groups are available to do_install
 
@@ -178,7 +268,20 @@ python useradd_sysroot_sstate () {
             # files. See usergrouptests.UserGroupTests.test_add_task_between_p_sysroot_and_package
             scriptfile = d.expand("${RECIPE_SYSROOT}${bindir}/postinst-useradd-" + sort_prefix + type + "-${PN}-recipedebug")
 
-            bb.build.exec_func(type + "add_sysroot", d)
+            if type == "group":
+                bb.build.exec_func("groupadd_sysroot", d)
+            elif type == "user":
+                bb.build.exec_func("useradd_sysroot", d)
+            elif type == "groupmems":
+                bb.build.exec_func("groupmemsadd_sysroot", d)
+            elif type == "groupmod":
+                bb.build.exec_func("groupmod_sysroot", d)
+            elif type == "usermod":
+                bb.build.exec_func("usermod_sysroot", d)
+            elif type == "userdel":
+                bb.build.exec_func("userdel_sysroot", d)
+            elif type == "groupdel":
+                bb.build.exec_func("groupdel_sysroot", d)
         elif task == "populate_sysroot":
             # Used when installed in dependent task sysroots
             scriptfile = d.expand("${SYSROOT_DESTDIR}${bindir}/postinst-useradd-" + sort_prefix + type + "-${PN}")
@@ -187,8 +290,27 @@ python useradd_sysroot_sstate () {
             bb.utils.mkdirhier(os.path.dirname(scriptfile))
             with open(scriptfile, 'w') as script:
                 script.write("#!/bin/sh -e\n")
-                bb.data.emit_func(type + "add_sysroot", script, d)
-                script.write(type + "add_sysroot\n")
+                if type == "group":
+                    bb.data.emit_func("groupadd_sysroot", script, d)
+                    script.write("groupadd_sysroot\n")
+                elif type == "user":
+                    bb.data.emit_func("useradd_sysroot", script, d)
+                    script.write("useradd_sysroot\n")
+                elif type == "groupmems":
+                    bb.data.emit_func("groupmemsadd_sysroot", script, d)
+                    script.write("groupmemsadd_sysroot\n")
+                elif type == "groupmod":
+                    bb.data.emit_func("groupmod_sysroot", script, d)
+                    script.write("groupmod_sysroot\n")
+                elif type == "usermod":
+                    bb.data.emit_func("usermod_sysroot", script, d)
+                    script.write("usermod_sysroot\n")
+                elif type == "userdel":
+                    bb.data.emit_func("userdel_sysroot", script, d)
+                    script.write("userdel_sysroot\n")
+                elif type == "groupdel":
+                    bb.data.emit_func("groupdel_sysroot", script, d)
+                    script.write("groupdel_sysroot\n")
             os.chmod(scriptfile, 0o755)
 }
 
@@ -215,9 +337,9 @@ def update_useradd_after_parse(d):
         bb.fatal("%s inherits useradd but doesn't set USERADD_PACKAGES" % d.getVar('FILE', False))
 
     for pkg in useradd_packages.split():
-        d.appendVarFlag("do_populate_sysroot", "vardeps", " USERADD_PARAM:%s GROUPADD_PARAM:%s GROUPMEMS_PARAM:%s" % (pkg, pkg, pkg))
-        if not d.getVar('USERADD_PARAM:%s' % pkg) and not d.getVar('GROUPADD_PARAM:%s' % pkg) and not d.getVar('GROUPMEMS_PARAM:%s' % pkg):
-            bb.fatal("%s inherits useradd but doesn't set USERADD_PARAM, GROUPADD_PARAM or GROUPMEMS_PARAM for package %s" % (d.getVar('FILE', False), pkg))
+        d.appendVarFlag("do_populate_sysroot", "vardeps", " USERADD_PARAM:%s GROUPADD_PARAM:%s GROUPMEMS_PARAM:%s GROUPMOD_PARAM:%s USERMOD_PARAM:%s GROUPDEL_PARAM:%s USERDEL_PARAM:%s" % (pkg, pkg, pkg, pkg, pkg, pkg, pkg))
+        if not d.getVar('USERADD_PARAM:%s' % pkg) and not d.getVar('GROUPADD_PARAM:%s' % pkg) and not d.getVar('GROUPMEMS_PARAM:%s' % pkg) and not d.getVar('GROUPMOD_PARAM:%s' % pkg) and not d.getVar('USERMOD_PARAM:%s' % pkg) and not d.getVar('GROUPDEL_PARAM:%s' % pkg) and not d.getVar('USERDEL_PARAM:%s' % pkg):
+            bb.fatal("%s inherits useradd but doesn't set USERADD_PARAM, GROUPADD_PARAM, GROUPMEMS_PARAM, GROUPMOD_PARAM, USERMOD_PARAM, GROUPDEL_PARAM or USERDEL_PARAM for package %s" % (d.getVar('FILE', False), pkg))
 
 python __anonymous() {
     if not bb.data.inherits_class('nativesdk', d) \
@@ -257,15 +379,109 @@ fakeroot python populate_packages:prepend () {
         preinst += 'bbnote () {\n\techo "NOTE: $*"\n}\n'
         preinst += 'bbwarn () {\n\techo "WARNING: $*"\n}\n'
         preinst += 'bbfatal () {\n\techo "ERROR: $*"\n\texit 1\n}\n'
+
+        # Preinst: Only groupadd and useradd (no groupmems)
         preinst += 'perform_groupadd () {\n%s}\n' % d.getVar('perform_groupadd')
         preinst += 'perform_useradd () {\n%s}\n' % d.getVar('perform_useradd')
-        preinst += 'perform_groupmems () {\n%s}\n' % d.getVar('perform_groupmems')
+        preinst += 'perform_groupmod () {\n%s}\n' % d.getVar('perform_groupmod')
+        preinst += 'perform_usermod () {\n%s}\n' % d.getVar('perform_usermod')
+        preinst += 'perform_groupdel () {\n%s}\n' % d.getVar('perform_groupdel')
+        preinst += 'perform_userdel () {\n%s}\n' % d.getVar('perform_userdel')
         preinst += d.getVar('useradd_preinst')
-        # Expand out the *_PARAM variables to the package specific versions
-        for rep in ["GROUPADD_PARAM", "USERADD_PARAM", "GROUPMEMS_PARAM"]:
+        for rep in ["GROUPADD_PARAM", "USERADD_PARAM", "GROUPMOD_PARAM", "USERMOD_PARAM", "GROUPDEL_PARAM", "USERDEL_PARAM"]:
             val = d.getVar(rep + ":" + pkg) or ""
             preinst = preinst.replace("${" + rep + "}", val)
         d.setVar('pkg_preinst:%s' % pkg, preinst)
+
+        # Postinst: Only groupmems (add memberships)
+        postinst = d.getVar('pkg_postinst:%s' % pkg) or d.getVar('pkg_postinst')
+        if not postinst:
+            postinst = '#!/bin/sh\nset -e\n'
+        postinst += 'bbnote () {\n\techo "NOTE: $*"\n}\n'
+        postinst += 'bbwarn () {\n\techo "WARNING: $*"\n}\n'
+        postinst += 'bbfatal () {\n\techo "ERROR: $*"\n\texit 1\n}\n'
+        postinst += 'perform_groupmems () {\n%s}\n' % d.getVar('perform_groupmems')
+        groupmems_param = d.getVar("GROUPMEMS_PARAM:" + pkg) or ""
+        if groupmems_param:
+            for cmd in groupmems_param.split(';'):
+                if cmd.strip():
+                    postinst += '\tperform_groupmems "" "%s"\n' % cmd.strip()
+        d.setVar('pkg_postinst:%s' % pkg, postinst)
+
+        # Generate postrm script for cleanup
+        postrm = d.getVar('pkg_postrm:%s' % pkg) or d.getVar('pkg_postrm')
+        if not postrm:
+            postrm = '#!/bin/sh\nset -e\n'
+        
+        # Add helper functions for postrm
+        postrm += 'bbnote () {\n\techo "NOTE: $*"\n}\n'
+        postrm += 'bbwarn () {\n\techo "WARNING: $*"\n}\n'
+        postrm += 'bbfatal () {\n\techo "ERROR: $*"\n\texit 1\n}\n'
+        
+        # Add perform_groupmems function
+        postrm += 'perform_groupmems () {\n'
+        postrm += '\tlocal rootdir="$1"\n'
+        postrm += '\tlocal opts="$2"\n'
+        postrm += '\tbbnote "${PN}: Performing groupmems with [$opts]"\n'
+        postrm += '\tlocal groupname=`echo "$opts" | awk \'{ for (i = 1; i < NF; i++) if ($i == "-g" || $i == "--group") print $(i+1) }\'`\n'
+        postrm += '\t\n'
+        postrm += '\t# Check if this is an add (-a) or delete (-d) operation\n'
+        postrm += '\tlocal is_add=`echo "$opts" | grep -E "\\-a|\\-\\-add" || true`\n'
+        postrm += '\tlocal is_delete=`echo "$opts" | grep -E "\\-d|\\-\\-delete" || true`\n'
+        postrm += '\t\n'
+        postrm += '\tif test "x$is_add" != "x"; then\n'
+        postrm += '\t\t# Adding user to group\n'
+        postrm += '\t\tlocal username=`echo "$opts" | awk \'{ for (i = 1; i < NF; i++) if ($i == "-a" || $i == "--add") print $(i+1) }\'`\n'
+        postrm += '\t\tbbnote "${PN}: Running groupmems command to add user $username to group $groupname"\n'
+        postrm += '\t\tlocal mem_exists="`grep "^$groupname:[^:]*:[^:]*:\\([^,]*,\\)*$username\\(,[^,]*\\)*$" $rootdir/etc/group || true`"\n'
+        postrm += '\t\tif test "x$mem_exists" = "x"; then\n'
+        postrm += '\t\t\teval flock -x $rootdir${sysconfdir} -c "$PSEUDO groupmems $opts" || true\n'
+        postrm += '\t\t\tmem_exists="`grep "^$groupname:[^:]*:[^:]*:\\([^,]*,\\)*$username\\(,[^,]*\\)*$" $rootdir/etc/group || true`"\n'
+        postrm += '\t\t\tif test "x$mem_exists" = "x"; then\n'
+        postrm += '\t\t\t\tbbfatal "${PN}: groupmems add command did not succeed."\n'
+        postrm += '\t\t\tfi\n'
+        postrm += '\t\telse\n'
+        postrm += '\t\t\tbbnote "${PN}: group $groupname already contains $username, not re-adding it"\n'
+        postrm += '\t\tfi\n'
+        postrm += '\telif test "x$is_delete" != "x"; then\n'
+        postrm += '\t\t# Removing user from group\n'
+        postrm += '\t\tlocal username=`echo "$opts" | awk \'{ for (i = 1; i < NF; i++) if ($i == "-d" || $i == "--delete") print $(i+1) }\'`\n'
+        postrm += '\t\tbbnote "${PN}: Running groupmems command to remove user $username from group $groupname"\n'
+        postrm += '\t\tlocal mem_exists="`grep "^$groupname:[^:]*:[^:]*:\\([^,]*,\\)*$username\\(,[^,]*\\)*$" $rootdir/etc/group || true`"\n'
+        postrm += '\t\tif test "x$mem_exists" != "x"; then\n'
+        postrm += '\t\t\tif groupmems $opts 2>/dev/null; then\n'
+        postrm += '\t\t\t\tbbnote "${PN}: Successfully removed user from group"\n'
+        postrm += '\t\t\telse\n'
+        postrm += '\t\t\t\tbbwarn "${PN}: groupmems delete command did not succeed."\n'
+        postrm += '\t\t\tfi\n'
+        postrm += '\t\telse\n'
+        postrm += '\t\t\tbbnote "${PN}: group $groupname doesn\'t contain $username, not removing it"\n'
+        postrm += '\t\tfi\n'
+        postrm += '\telse\n'
+        postrm += '\t\tbbwarn "${PN}: groupmems command missing add (-a) or delete (-d) operation"\n'
+        postrm += '\tfi\n'
+        postrm += '}\n'
+        
+        # Add cleanup logic - for both removal and upgrade
+        postrm += 'if [ "$1" = "remove" ] || [ "$1" = "upgrade" ]; then\n'
+        
+        # Generate groupmems commands to remove group memberships
+        groupmems_param = d.getVar("GROUPMEMS_PARAM:" + pkg) or ""
+        has_cleanup_commands = False
+        if groupmems_param:
+            for cmd in groupmems_param.split(';'):
+                if cmd.strip():
+                    # Convert -a to -d for removal
+                    removal_cmd = cmd.strip().replace(' -a ', ' -d ').replace('-a ', '-d ')
+                    removal_cmd = removal_cmd.replace(' --add ', ' --delete ').replace('--add ', '--delete ')
+                    postrm += '\tperform_groupmems "" "%s"\n' % removal_cmd
+                    has_cleanup_commands = True
+        
+        if not has_cleanup_commands:
+            postrm += '\t# No group memberships to clean up\n'
+            
+        postrm += 'fi\n'
+        d.setVar('pkg_postrm:%s' % pkg, postrm)
 
         # RDEPENDS setup
         rdepends = d.getVar("RDEPENDS:%s" % pkg) or ""
